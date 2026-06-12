@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioMed Reporter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --blue:#185FA5;--blue-l:#E6F1FB;--blue-m:#B5D4F4;
+  --teal:#0F6E56;--teal-l:#E1F5EE;--teal-m:#9FE1CB;
+  --amber:#854F0B;--amber-l:#FAEEDA;--amber-m:#FAC775;
+  --red:#A32D2D;--red-l:#FCEBEB;--red-m:#F7C1C1;
+  --green:#3B6D11;--green-l:#EAF3DE;--green-m:#C0DD97;
+  --gray:#5F5E5A;--gray-l:#F1EFE8;--gray-m:#D3D1C7;
+  --purple:#534AB7;--purple-l:#EEEDFE;--purple-m:#CECBF6;
+  --bg:#f2f1ee;--surface:#fff;--border:rgba(0,0,0,0.11);
+  --text:#111110;--text2:#4a4946;--text3:#8a8a85;
+  --r:10px;--rs:7px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 0 0 0.5px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:light only}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f1ee;color:#111110;font-size:15px;min-height:100vh}
+
+/* ── AUTH ── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#E6F1FB 0%,#f2f1ee 60%)}
+.auth-box{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.1);padding:32px 24px;width:100%;max-width:360px}
+.auth-logo{text-align:center;margin-bottom:24px}
+.auth-logo h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.auth-logo h1 span{color:var(--blue)}
+.auth-logo p{font-size:12px;color:var(--text2);margin-top:4px}
+.auth-tabs{display:flex;background:var(--bg);border-radius:8px;padding:3px;margin-bottom:20px}
+.auth-tab{flex:1;text-align:center;padding:7px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s}
+.auth-tab.active{background:#fff;color:var(--blue);box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.auth-field{margin-bottom:12px}
+.auth-field label{display:block;font-size:12px;font-weight:500;color:#444;margin-bottom:5px}
+.auth-field input{width:100%;border:1.5px solid #d0cfc9;border-radius:8px;padding:10px 12px;font-size:14px;background:#fff;color:#111;outline:none;transition:border-color .15s}
+.auth-field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,95,165,0.1)}
+.auth-btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-err{background:var(--red-l);color:var(--red);border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:10px;display:none}
+.auth-err.show{display:block}
+
+/* ── APP SHELL ── */
+.app{display:none;flex-direction:column;min-height:100vh;max-width:480px;margin:0 auto;background:var(--bg)}
+.app.visible{display:flex}
+.top-bar{background:#fff;border-bottom:0.5px solid var(--border);padding:12px 16px 0;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,0.06)}
+.top-bar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.app-name{font-size:16px;font-weight:700;letter-spacing:-0.3px}
+.app-name span{color:var(--blue)}
+.top-right{display:flex;align-items:center;gap:8px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s;flex-shrink:0}
+.sync-dot.online{background:var(--green)}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.user-btn{font-size:11px;background:var(--gray-l);border:none;border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text2)}
+.nav-tabs{display:flex;overflow-x:auto;scrollbar-width:none}
+.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{flex-shrink:0;padding:8px 13px;font-size:12px;font-weight:500;color:var(--text2);border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s}
+.nav-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.content{flex:1;padding:14px;padding-bottom:24px}
+.screen{display:none}
+.screen.active{display:block}
+
+/* ── CARDS ── */
+.card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:15px;margin-bottom:11px}
+.card-hd{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.icon-pill{width:34px;height:34px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+
+/* ── FORMS ── */
+label{display:block;font-size:12px;font-weight:500;color:#444;margin-bottom:4px}
+label .req{color:#c0392b;margin-left:2px}
+input[type=text],input[type=date],input[type=email],input[type=password],select,textarea{width:100%;border:1.5px solid #d0cfc9;border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:#111;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,95,165,0.1)}
+textarea{resize:none;min-height:65px;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px}
+.form-col{margin-bottom:11px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%239e9d99' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+/* ── BADGES ── */
+.badge-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+.badge-btn{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .12s;user-select:none;background:var(--gray-l);color:var(--text2)}
+.badge-btn.active.g{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.badge-btn.active.a{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.badge-btn.active.r{background:var(--red-l);color:var(--red);border-color:var(--red-m)}
+.badge-btn.active.b{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.badge-btn.active.t{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
+.badge-btn.active.gr{background:var(--gray-l);color:var(--gray);border-color:var(--gray-m)}
+.badge-btn.active.p{background:var(--purple-l);color:var(--purple);border-color:var(--purple-m)}
+
+/* ── UPLOAD ── */
+.upload-zone{border:1.5px dashed #d0cfc9;border-radius:var(--rs);padding:16px;text-align:center;cursor:pointer;position:relative;transition:background .15s;background:#fff}
+.upload-zone:hover{background:var(--blue-l);border-color:var(--blue)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-preview{margin-top:9px;display:none}
+.upload-preview img{width:100%;border-radius:var(--rs);max-height:180px;object-fit:cover}
+.remove-img{font-size:11px;color:var(--red);cursor:pointer;margin-top:4px;display:inline-block}
+
+/* ── BUTTONS ── */
+.btn{width:100%;padding:12px;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-outline{background:transparent;border:1px solid #d0cfc9;color:var(--text2)}
+.btn-red{background:var(--red);color:#fff}
+.btn-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:14px}
+.btn-sm{padding:9px 16px;font-size:13px;width:auto}
+
+/* ── DIVIDER ── */
+.sec-div{display:flex;align-items:center;gap:8px;margin:14px 0 10px}
+.sec-div span{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--text3);white-space:nowrap}
+.sec-div::before,.sec-div::after{content:'';flex:1;height:.5px;background:var(--border)}
+
+/* ── DASHBOARD ── */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.metric-card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:13px}
+.metric-val{font-size:26px;font-weight:700;line-height:1;margin-bottom:3px}
+.metric-label{font-size:11px;color:var(--text2)}
+.prog-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px}
+.prog-bar{height:6px;background:var(--gray-l);border-radius:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:6px;transition:width .4s}
+
+/* ── CALENDAR ── */
+.cal-wrap{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:11px}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-header h3{font-size:14px;font-weight:600}
+.cal-nav{background:var(--gray-l);border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px;color:var(--text2)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-day-name{text-align:center;font-size:10px;font-weight:600;color:var(--text3);padding:3px 0}
+.cal-day{text-align:center;padding:5px 2px;border-radius:6px;font-size:12px;cursor:pointer;position:relative;min-height:32px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.cal-day:hover{background:var(--blue-l)}
+.cal-day.today{background:var(--blue);color:#fff;font-weight:700}
+.cal-day.today:hover{background:var(--blue)}
+.cal-day.has-pms::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--blue);display:block}
+.cal-day.today.has-pms::after{background:#fff}
+.cal-day.has-as::after{background:var(--teal)}
+.cal-day.has-both::after{background:var(--purple)}
+.cal-day.today.has-both::after,.cal-day.today.has-as::after{background:#fff}
+.cal-day.other-month{color:var(--text3)}
+.cal-legend{display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text2)}
+.cal-legend span{display:flex;align-items:center;gap:4px}
+.cal-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* ── RECORDS ── */
+.rec-item{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:12px 13px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s}
+.rec-item:hover{box-shadow:0 3px 10px rgba(0,0,0,0.1)}
+.rec-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:5px}
+.rec-name{font-size:14px;font-weight:600}
+.rec-meta{font-size:12px;color:var(--text2);margin-top:1px}
+.status-pill{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;flex-shrink:0}
+.sp-g{background:var(--green-l);color:var(--green)}
+.sp-a{background:var(--amber-l);color:var(--amber)}
+.sp-r{background:var(--red-l);color:var(--red)}
+.sp-b{background:var(--blue-l);color:var(--blue)}
+.sp-t{background:var(--teal-l);color:var(--teal)}
+.sp-gr{background:var(--gray-l);color:var(--gray)}
+.rec-footer{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.rec-chip{font-size:11px;color:var(--text3);background:var(--bg);border-radius:20px;padding:2px 8px;border:.5px solid var(--border)}
+
+/* ── BIOMED ROWS ── */
+.biomed-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border)}
+.biomed-row:last-child{border-bottom:none}
+.avatar{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.bm-info{flex:1;min-width:0}
+.bm-name{font-size:13px;font-weight:500}
+.bm-counts{font-size:11px;color:var(--text2);margin-top:1px}
+.bm-prog{height:3px;background:var(--gray-l);border-radius:3px;margin-top:4px;overflow:hidden}
+.bm-prog-fill{height:100%;border-radius:3px}
+
+/* ── SEARCH ── */
+.search-bar{position:relative;margin-bottom:11px}
+.search-bar input{padding-left:34px}
+.s-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text3);pointer-events:none}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:none;align-items:flex-end;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:18px 16px 32px;max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 14px}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:12px}
+.modal-row{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:.5px solid var(--border);font-size:13px;gap:12px}
+.modal-row:last-of-type{border-bottom:none}
+.modal-key{color:var(--text2);flex-shrink:0}
+.modal-val{font-weight:500;text-align:right}
+.modal-img{width:100%;border-radius:var(--rs);margin:10px 0;max-height:260px;object-fit:contain;background:#f5f5f5}
+.close-btn{float:right;background:var(--gray-l);border:none;border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;color:var(--text2)}
+.modal-actions{display:flex;gap:8px;margin-top:14px}
+.modal-actions .btn{flex:1}
+
+/* ── EMPTY / SKEL ── */
+.empty{text-align:center;padding:36px 20px;color:var(--text2)}
+.empty .ei{font-size:32px;margin-bottom:8px;opacity:.4}
+.empty p{font-size:13px}
+.skel{background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;animation:skel 1.2s infinite;border-radius:6px;height:13px;margin-bottom:7px}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a18;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;transition:all .25s;z-index:999;white-space:nowrap;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── CONN BANNER ── */
+.conn-banner{background:var(--amber-l);border:.5px solid var(--amber-m);border-radius:var(--rs);padding:9px 13px;font-size:12px;color:var(--amber);margin-bottom:10px;display:none}
+
+/* ── EXPORT BAR ── */
+.export-bar{display:flex;gap:8px;margin-bottom:11px;flex-wrap:wrap}
+.export-bar select{flex:1;min-width:100px}
+
+/* ── EDIT MODAL specific ── */
+.edit-section{margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══════════════════════════════════════ -->
+<div class="auth-wrap" id="authWrap">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <h1>Biomed<span>Reporter</span></h1>
+      <p>Medical Equipment Daily Reporting</p>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="showAuthTab('login')">Log In</div>
+      <div class="auth-tab" onclick="showAuthTab('signup')">Sign Up</div>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+
+    <!-- Login -->
+    <div id="loginForm">
+      <div class="auth-field"><label>Email</label><input type="email" id="li-email" placeholder="your@email.com"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="li-pass" placeholder="Password"></div>
+      <button class="auth-btn" id="loginBtn" onclick="doLogin()">Log In</button>
+    </div>
+
+    <!-- Signup -->
+    <div id="signupForm" style="display:none">
+      <div class="auth-field"><label>Full name</label><input type="text" id="su-name" placeholder="e.g. Juan Reyes"></div>
+      <div class="auth-field"><label>Email</label><input type="email" id="su-email" placeholder="your@email.com"></div>
+      <div class="auth-field"><label>Password <span style="font-size:10px;color:var(--text3)">(min 6 characters)</span></label><input type="password" id="su-pass" placeholder="Create password"></div>
+      <button class="auth-btn" id="signupBtn" onclick="doSignup()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ═════════════════════════════════════════ -->
+<div class="app" id="mainApp">
+  <div class="top-bar">
+    <div class="top-bar-row">
+      <div class="app-name">Biomed<span>Reporter</span> <span class="sync-dot syncing" id="syncDot"></span></div>
+      <div class="top-right">
+        <span id="userLabel" style="font-size:11px;color:var(--text2)"></span>
+        <button class="user-btn" onclick="doLogout()">Log out</button>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-screen="dashboard">Dashboard</div>
+      <div class="nav-tab" data-screen="pms">PMS</div>
+      <div class="nav-tab" data-screen="aftersales">Aftersales</div>
+      <div class="nav-tab" data-screen="records">Records</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── DASHBOARD ───────────────────────────────────── -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="conn-banner" id="connBanner">⚠️ Offline — showing cached data.</div>
+      <div style="margin-bottom:13px">
+        <div style="font-size:17px;font-weight:600">Good <span id="greeting"></span> 👋</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Overview — <span id="monthLabel"></span></div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card"><div class="metric-val" style="color:var(--blue)" id="d-pms">—</div><div class="metric-label">PMS done</div></div>
+        <div class="metric-card"><div class="metric-val" style="color:var(--teal)" id="d-as">—</div><div class="metric-label">Aftersales closed</div></div>
+        <div class="metric-card"><div class="metric-val" style="color:var(--amber)" id="d-pend">—</div><div class="metric-label">Pending</div></div>
+        <div class="metric-card"><div class="metric-val" style="color:var(--red)" id="d-cond">—</div><div class="metric-label">Condemned</div></div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:13px;font-weight:500;margin-bottom:9px">PMS monthly target</div>
+        <div class="prog-label"><span id="prog-label">0 done</span><span id="prog-target">Target: 60</span></div>
+        <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="background:var(--blue);width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px" id="prog-note"></div>
+      </div>
+
+      <!-- Calendar -->
+      <div class="cal-wrap">
+        <div class="cal-header">
+          <button class="cal-nav" onclick="calPrev()">‹</button>
+          <h3 id="calTitle"></h3>
+          <button class="cal-nav" onclick="calNext()">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span><i style="background:var(--blue)"></i>PMS</span>
+          <span><i style="background:var(--teal)"></i>Aftersales</span>
+          <span><i style="background:var(--purple)"></i>Both</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:13px;font-weight:500;margin-bottom:11px">Team performance</div>
+        <div id="biomed-list"><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px">
+          <div style="font-size:13px;font-weight:500">Recent activity</div>
+          <div style="font-size:11px;color:var(--blue);cursor:pointer" onclick="switchTab('records')">View all →</div>
+        </div>
+        <div id="recent-list"><div class="skel"></div><div class="skel" style="width:60%"></div></div>
+      </div>
+    </div>
+
+    <!-- ── PMS FORM ────────────────────────────────────── -->
+    <div class="screen" id="screen-pms">
+      <div class="card">
+        <div class="card-hd">
+          <div class="icon-pill" style="background:var(--blue-l)">🩺</div>
+          <div><div style="font-size:14px;font-weight:600">New PMS report</div><div style="font-size:11px;color:var(--text2)">Preventive maintenance service</div></div>
+        </div>
+        <div class="sec-div"><span>Biomed & date</span></div>
+        <div class="form-row">
+          <div><label>Biomed name <span class="req">*</span></label><input type="text" id="p-biomed" placeholder="Full name"></div>
+          <div><label>Date <span class="req">*</span></label><input type="date" id="p-date"></div>
+        </div>
+        <div class="sec-div"><span>Equipment details</span></div>
+        <div class="form-row">
+          <div><label>Hospital / Ward <span class="req">*</span></label><input type="text" id="p-hospital" placeholder="e.g. ICU Ward 3"></div>
+          <div><label>Equipment name <span class="req">*</span></label><input type="text" id="p-equip" placeholder="e.g. Patient Monitor"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Brand <span class="req">*</span></label><input type="text" id="p-brand" placeholder="e.g. Mindray"></div>
+          <div><label>Serial No. (SN) <span class="req">*</span></label><input type="text" id="p-sn" placeholder="e.g. MM123456"></div>
+        </div>
+        <div class="sec-div"><span>Condition & status</span></div>
+        <label>Equipment condition <span class="req">*</span></label>
+        <div class="badge-group" style="margin-bottom:11px">
+          <div class="badge-btn g" data-val="Functional" data-group="p-cond">✅ Functional</div>
+          <div class="badge-btn a" data-val="For repair" data-group="p-cond">⚠️ For repair</div>
+          <div class="badge-btn r" data-val="Condemned" data-group="p-cond">❌ Condemned</div>
+          <div class="badge-btn b" data-val="Under observation" data-group="p-cond">👁 Under obs</div>
+        </div>
+        <label>PMS status <span class="req">*</span></label>
+        <div class="badge-group" style="margin-bottom:11px">
+          <div class="badge-btn g" data-val="Done" data-group="p-status">Done</div>
+          <div class="badge-btn a" data-val="Pending parts" data-group="p-status">Pending parts</div>
+          <div class="badge-btn r" data-val="Not done" data-group="p-status">Not done</div>
+          <div class="badge-btn gr" data-val="N/A" data-group="p-status">N/A</div>
+        </div>
+        <div class="sec-div"><span>Handwritten report photo</span></div>
+        <div class="upload-zone">
+          <input type="file" accept="image/*" capture="environment" id="p-file" onchange="handleUpload('p')">
+          <div style="font-size:22px;margin-bottom:5px">📷</div>
+          <div style="font-size:12px;color:var(--text2)">Tap to take photo or upload<br><span style="font-size:10px;color:var(--text3)">Your handwritten report</span></div>
+        </div>
+        <div class="upload-preview" id="p-preview"><img id="p-preview-img" src="" alt=""><span class="remove-img" onclick="removeUpload('p')">✕ Remove</span></div>
+        <div class="sec-div"><span>Remarks</span></div>
+        <div class="form-col"><label>Notes</label><textarea id="p-remarks" placeholder="Additional notes..."></textarea></div>
+        <div class="btn-row">
+          <button class="btn btn-blue" id="p-btn" onclick="submitPMS()">Submit PMS report</button>
+          <button class="btn btn-outline btn-sm" onclick="clearForm('p')">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AFTERSALES FORM ─────────────────────────────── -->
+    <div class="screen" id="screen-aftersales">
+      <div class="card">
+        <div class="card-hd">
+          <div class="icon-pill" style="background:var(--teal-l)">🔧</div>
+          <div><div style="font-size:14px;font-weight:600">New aftersales report</div><div style="font-size:11px;color:var(--text2)">Service call, repair, or follow-up</div></div>
+        </div>
+        <div class="sec-div"><span>Biomed & date</span></div>
+        <div class="form-row">
+          <div><label>Biomed name <span class="req">*</span></label><input type="text" id="a-biomed" placeholder="Full name"></div>
+          <div><label>Date <span class="req">*</span></label><input type="date" id="a-date"></div>
+        </div>
+        <div class="sec-div"><span>Equipment details</span></div>
+        <div class="form-row">
+          <div><label>Hospital / Client <span class="req">*</span></label><input type="text" id="a-hospital" placeholder="e.g. St. Luke's"></div>
+          <div><label>Equipment name <span class="req">*</span></label><input type="text" id="a-equip" placeholder="e.g. Infusion Pump"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Brand <span class="req">*</span></label><input type="text" id="a-brand" placeholder="e.g. BD Alaris"></div>
+          <div><label>Serial No. (SN) <span class="req">*</span></label><input type="text" id="a-sn" placeholder="e.g. BD789012"></div>
+        </div>
+        <div class="form-col"><label>Issue / complaint <span class="req">*</span></label><input type="text" id="a-issue" placeholder="Describe the problem"></div>
+        <div class="sec-div"><span>Service type</span></div>
+        <div class="badge-group" style="margin-bottom:11px">
+          <div class="badge-btn b" data-val="Corrective" data-group="a-type">Corrective</div>
+          <div class="badge-btn t" data-val="Installation" data-group="a-type">Installation</div>
+          <div class="badge-btn gr" data-val="Training" data-group="a-type">Training</div>
+          <div class="badge-btn a" data-val="Warranty" data-group="a-type">Warranty</div>
+          <div class="badge-btn p" data-val="Inspection" data-group="a-type">Inspection</div>
+        </div>
+        <div class="sec-div"><span>Condition after service</span></div>
+        <label>Status <span class="req">*</span></label>
+        <div class="badge-group" style="margin-bottom:11px">
+          <div class="badge-btn g" data-val="Resolved" data-group="a-status">✅ Resolved</div>
+          <div class="badge-btn a" data-val="Partial fix" data-group="a-status">⚠️ Partial fix</div>
+          <div class="badge-btn r" data-val="Pending parts" data-group="a-status">🔴 Pending parts</div>
+          <div class="badge-btn r" data-val="For pull-out" data-group="a-status">❌ For pull-out</div>
+        </div>
+        <div class="sec-div"><span>Service report photo</span></div>
+        <div class="upload-zone">
+          <input type="file" accept="image/*" capture="environment" id="a-file" onchange="handleUpload('a')">
+          <div style="font-size:22px;margin-bottom:5px">📷</div>
+          <div style="font-size:12px;color:var(--text2)">Tap to take photo or upload<br><span style="font-size:10px;color:var(--text3)">Your handwritten report</span></div>
+        </div>
+        <div class="upload-preview" id="a-preview"><img id="a-preview-img" src="" alt=""><span class="remove-img" onclick="removeUpload('a')">✕ Remove</span></div>
+        <div class="sec-div"><span>Action taken</span></div>
+        <div class="form-col"><label>Action / parts replaced</label><textarea id="a-action" placeholder="What was done, parts used..."></textarea></div>
+        <div class="btn-row">
+          <button class="btn btn-teal" id="a-btn" onclick="submitAftersales()">Submit aftersales report</button>
+          <button class="btn btn-outline btn-sm" onclick="clearForm('a')">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RECORDS ─────────────────────────────────────── -->
+    <div class="screen" id="screen-records">
+      <!-- Export bar -->
+      <div class="export-bar">
+        <select id="export-month"></select>
+        <select id="export-type">
+          <option value="all">All types</option>
+          <option value="PMS">PMS only</option>
+          <option value="Aftersales">Aftersales only</option>
+        </select>
+        <button class="btn btn-green btn-sm" onclick="exportExcel()" style="white-space:nowrap">⬇ Excel</button>
+      </div>
+      <div class="search-bar">
+        <span class="s-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search equipment, SN, biomed..." oninput="renderRecords()">
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:11px;flex-wrap:wrap">
+        <div class="badge-btn active g" onclick="filterRec('all',this)" style="font-size:11px">All</div>
+        <div class="badge-btn b" onclick="filterRec('PMS',this)" style="font-size:11px">PMS</div>
+        <div class="badge-btn t" onclick="filterRec('Aftersales',this)" style="font-size:11px">Aftersales</div>
+        <div class="badge-btn r" onclick="filterRec('Condemned',this)" style="font-size:11px">Condemned</div>
+        <div class="badge-btn a" onclick="filterRec('Pending',this)" style="font-size:11px">Pending</div>
+      </div>
+      <div id="records-list"><div class="skel"></div><div class="skel" style="width:80%"></div><div class="skel"></div></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- ── DETAIL / EDIT MODAL ──────────────────────────── -->
+<div class="overlay" id="detailOverlay" onclick="closeOverlay(event,'detailOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeOverlay(null,'detailOverlay')">Close</button>
+    <div class="modal-title" id="detail-title"></div>
+    <div id="detail-body"></div>
+    <div class="modal-actions" id="detail-actions"></div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ───────────────────────────────────── -->
+<div class="overlay" id="editOverlay" onclick="closeOverlay(event,'editOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeOverlay(null,'editOverlay')">Close</button>
+    <div class="modal-title">Edit aftersales report</div>
+    <div class="edit-section">
+      <div class="form-row">
+        <div><label>Status</label>
+          <select id="e-status">
+            <option>Resolved</option><option>Partial fix</option><option>Pending parts</option><option>For pull-out</option>
+          </select>
+        </div>
+        <div><label>Condition</label>
+          <select id="e-condition">
+            <option>Functional</option><option>For repair</option><option>Condemned</option><option>Under observation</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-col"><label>Action taken / parts replaced</label><textarea id="e-action" placeholder="Update action taken..."></textarea></div>
+      <div class="form-col"><label>Remarks</label><textarea id="e-remarks" placeholder="Additional notes..."></textarea></div>
+      <div class="form-col"><label>Update photo (optional)</label>
+        <div class="upload-zone">
+          <input type="file" accept="image/*" capture="environment" id="e-file" onchange="handleUpload('e')">
+          <div style="font-size:20px;margin-bottom:4px">📷</div>
+          <div style="font-size:12px;color:var(--text2)">Replace photo (optional)</div>
+        </div>
+        <div class="upload-preview" id="e-preview"><img id="e-preview-img" src="" alt=""><span class="remove-img" onclick="removeUpload('e')">✕ Remove</span></div>
+      </div>
+    </div>
+    <button class="btn btn-teal" id="e-save-btn" onclick="saveEdit()">Save changes</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONFIG ══════════════════════════════════════════════
+const SUPA_URL = 'https://cdiggesybvkjsfoqnqsz.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkaWdnZXN5YnZranNmb3FucXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjA5MjAsImV4cCI6MjA5NjczNjkyMH0.wJTkUk7_8KPwDVLj4mRJ7tlPctdeiuxLn2y1yjxjnlw';
+const BUCKET   = 'report-photos';
+const TARGET   = 60;
+
+// ══ STATE ════════════════════════════════════════════════
+let records = [], currentUser = null, recordFilter = 'all';
+let pmsFile = null, asFile = null, editFile = null, editingId = null;
+let calYear, calMonth;
+
+// ══ SUPABASE HELPERS ═════════════════════════════════════
+const H = { 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY, 'Content-Type':'application/json', 'Prefer':'return=representation' };
+
+async function sbPost(path, body) {
+  const isAuth = path.startsWith('/auth/');
+  const hdrs = isAuth
+    ? {'apikey':SUPA_KEY,'Content-Type':'application/json'}
+    : H;
+  const r = await fetch(SUPA_URL+path, {method:'POST', headers:hdrs, body:JSON.stringify(body)});
+  const text = await r.text();
+  let json;
+  try { json = JSON.parse(text); } catch(e) { if(!r.ok) throw new Error(text); return {}; }
+  if (!r.ok) throw new Error(json.error_description || json.msg || json.message || text);
+  return json;
+}
+async function sbGet(path) {
+  const r = await fetch(SUPA_URL+path, {headers:H});
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(path, body) {
+  const r = await fetch(SUPA_URL+path, {method:'PATCH', headers:{...H,'Prefer':'return=representation'}, body:JSON.stringify(body)});
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function uploadPhoto(file, prefix) {
+  const blob = await compressImage(file);
+  const path = prefix+'-'+Date.now()+'.jpg';
+  const r = await fetch(SUPA_URL+'/storage/v1/object/'+BUCKET+'/'+path, {
+    method:'POST', body:blob,
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/jpeg','x-upsert':'true'}
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return SUPA_URL+'/storage/v1/object/public/'+BUCKET+'/'+path;
+}
+async function compressImage(file) {
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        const MAX=1200; let w=img.width, h=img.height;
+        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+        c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        c.toBlob(b=>res(b),'image/jpeg',0.82);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ══ AUTH ═════════════════════════════════════════════════
+function showAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='login'?0:1)));
+  document.getElementById('loginForm').style.display  = tab==='login'  ? '' : 'none';
+  document.getElementById('signupForm').style.display = tab==='signup' ? '' : 'none';
+  document.getElementById('authErr').classList.remove('show');
+}
+function authErr(msg) {
+  const el = document.getElementById('authErr');
+  el.textContent = msg; el.classList.add('show');
+}
+async function doLogin() {
+  const email = document.getElementById('li-email').value.trim();
+  const pass  = document.getElementById('li-pass').value;
+  if (!email||!pass) return authErr('Please enter email and password.');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled=true; btn.textContent='Logging in…';
+  try {
+    const data = await sbPost('/auth/v1/token?grant_type=password', {email, password:pass});
+    if (!data.access_token) throw new Error(data.error_description || data.error || 'Login failed');
+    currentUser = data.user || {email};
+    H['Authorization'] = 'Bearer ' + data.access_token;
+    H['Prefer'] = 'return=representation';
+    document.getElementById('userLabel').textContent = currentUser.user_metadata?.full_name || email;
+    document.getElementById('authWrap').style.display = 'none';
+    document.getElementById('mainApp').classList.add('visible');
+    init();
+  } catch(e) { authErr(e.message || 'Login failed. Check email and password.'); }
+  btn.disabled=false; btn.textContent='Log In';
+}
+async function doSignup() {
+  const name  = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass  = document.getElementById('su-pass').value;
+  if (!name||!email||!pass) return authErr('Please fill all fields.');
+  if (pass.length<6) return authErr('Password must be at least 6 characters.');
+  const btn = document.getElementById('signupBtn');
+  btn.disabled=true; btn.textContent='Creating account…';
+  try {
+    const data = await sbPost('/auth/v1/signup', {email, password:pass, data:{full_name:name}});
+    if (data.error) throw new Error(data.error_description || data.error);
+    authErr(''); 
+    document.getElementById('authErr').style.background='var(--green-l)';
+    document.getElementById('authErr').style.color='var(--green)';
+    document.getElementById('authErr').textContent='✅ Account created! Please log in.';
+    document.getElementById('authErr').classList.add('show');
+    showAuthTab('login');
+  } catch(e) { authErr(e.message || 'Signup failed.'); }
+  btn.disabled=false; btn.textContent='Create Account';
+}
+function doLogout() {
+  currentUser=null; records=[];
+  H['Authorization']='Bearer '+SUPA_KEY;
+  document.getElementById('mainApp').classList.remove('visible');
+  document.getElementById('authWrap').style.display='';
+  document.getElementById('li-email').value='';
+  document.getElementById('li-pass').value='';
+}
+
+// ══ INIT ═════════════════════════════════════════════════
+function init() {
+  const now = new Date();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('monthLabel').textContent = months[now.getMonth()]+' '+now.getFullYear();
+  const h=now.getHours();
+  document.getElementById('greeting').textContent = h<12?'morning':h<17?'afternoon':'evening';
+  const today=now.toISOString().split('T')[0];
+  document.getElementById('p-date').value=today;
+  document.getElementById('a-date').value=today;
+  calYear=now.getFullYear(); calMonth=now.getMonth();
+  populateExportMonths();
+  setupNav(); setupBadges();
+  loadData();
+  setInterval(loadData,60000);
+}
+function setupNav() {
+  document.querySelectorAll('.nav-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('screen-'+tab.dataset.screen).classList.add('active');
+    });
+  });
+}
+function switchTab(s) {
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(sc=>sc.classList.remove('active'));
+  document.querySelector('.nav-tab[data-screen="'+s+'"]').classList.add('active');
+  document.getElementById('screen-'+s).classList.add('active');
+  window.scrollTo(0,0);
+}
+function setupBadges() {
+  document.querySelectorAll('.badge-btn[data-group]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.badge-btn[data-group="'+btn.dataset.group+'"]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+}
+function getBadgeVal(g) { const el=document.querySelector('.badge-btn[data-group="'+g+'"].active'); return el?el.dataset.val:null; }
+
+// ══ LOAD DATA ════════════════════════════════════════════
+async function loadData() {
+  setSyncDot('syncing');
+  try {
+    records = await sbGet('/rest/v1/reports?order=created_at.desc&limit=500');
+    try{localStorage.setItem('bm_cache',JSON.stringify(records.slice(0,100)));}catch(e){}
+    setSyncDot('online');
+    document.getElementById('connBanner').style.display='none';
+  } catch(e) {
+    setSyncDot('error');
+    document.getElementById('connBanner').style.display='block';
+    const c=localStorage.getItem('bm_cache');
+    if(c&&records.length===0) records=JSON.parse(c);
+  }
+  updateDashboard(); renderRecords(); renderCalendar();
+}
+function setSyncDot(s) {
+  const d=document.getElementById('syncDot');
+  d.className='sync-dot '+s;
+  d.title=s==='online'?'Connected':s==='syncing'?'Syncing…':'Connection error';
+}
+
+// ══ UPLOAD ═══════════════════════════════════════════════
+function handleUpload(prefix) {
+  const file=document.getElementById(prefix+'-file').files[0];
+  if(!file) return;
+  if(prefix==='p') pmsFile=file; else if(prefix==='a') asFile=file; else editFile=file;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById(prefix+'-preview-img').src=e.target.result;
+    document.getElementById(prefix+'-preview').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+function removeUpload(prefix) {
+  if(prefix==='p') pmsFile=null; else if(prefix==='a') asFile=null; else editFile=null;
+  document.getElementById(prefix+'-preview').style.display='none';
+  document.getElementById(prefix+'-preview-img').src='';
+  document.getElementById(prefix+'-file').value='';
+}
+
+// ══ VALIDATE ═════════════════════════════════════════════
+function gv(id){return document.getElementById(id).value.trim();}
+function validate(fields) {
+  for(const [id,label] of fields){
+    if(!gv(id)){showToast('Please fill in: '+label);document.getElementById(id).focus();return false;}
+  }
+  return true;
+}
+
+// ══ SUBMIT PMS ═══════════════════════════════════════════
+async function submitPMS() {
+  if(!validate([['p-biomed','Biomed name'],['p-hospital','Hospital/Ward'],['p-equip','Equipment name'],['p-brand','Brand'],['p-sn','Serial number']])) return;
+  const cond=getBadgeVal('p-cond'); if(!cond){showToast('Select equipment condition');return;}
+  const status=getBadgeVal('p-status'); if(!status){showToast('Select PMS status');return;}
+  const btn=document.getElementById('p-btn');
+  btn.disabled=true; btn.textContent='Saving…'; setSyncDot('syncing');
+  try {
+    let photo_url=null;
+    if(pmsFile){btn.textContent='Uploading photo…';photo_url=await uploadPhoto(pmsFile,'pms');}
+    btn.textContent='Saving to database…';
+    const rec={type:'PMS',biomed:gv('p-biomed'),date:gv('p-date'),hospital:gv('p-hospital'),equipment:gv('p-equip'),brand:gv('p-brand'),sn:gv('p-sn'),condition:cond,status,remarks:gv('p-remarks'),photo_url,
+      created_by: currentUser?.email||''};
+    const saved=await sbPost('/rest/v1/reports',rec);
+    records.unshift(Array.isArray(saved)?saved[0]:rec);
+    clearForm('p'); setSyncDot('online');
+    showToast('✅ PMS report saved!');
+    updateDashboard(); renderRecords(); renderCalendar(); switchTab('dashboard');
+  } catch(e){setSyncDot('error');showToast('❌ '+( e.message||'Save failed'));}
+  btn.disabled=false; btn.textContent='Submit PMS report';
+}
+
+// ══ SUBMIT AFTERSALES ════════════════════════════════════
+async function submitAftersales() {
+  if(!validate([['a-biomed','Biomed name'],['a-hospital','Hospital/Client'],['a-equip','Equipment name'],['a-brand','Brand'],['a-sn','Serial number'],['a-issue','Issue/complaint']])) return;
+  const stype=getBadgeVal('a-type'); if(!stype){showToast('Select service type');return;}
+  const status=getBadgeVal('a-status'); if(!status){showToast('Select condition after service');return;}
+  const btn=document.getElementById('a-btn');
+  btn.disabled=true; btn.textContent='Saving…'; setSyncDot('syncing');
+  try {
+    let photo_url=null;
+    if(asFile){btn.textContent='Uploading photo…';photo_url=await uploadPhoto(asFile,'as');}
+    btn.textContent='Saving to database…';
+    const rec={type:'Aftersales',biomed:gv('a-biomed'),date:gv('a-date'),hospital:gv('a-hospital'),equipment:gv('a-equip'),brand:gv('a-brand'),sn:gv('a-sn'),issue:gv('a-issue'),service_type:stype,status,action:gv('a-action'),photo_url,
+      created_by: currentUser?.email||''};
+    const saved=await sbPost('/rest/v1/reports',rec);
+    records.unshift(Array.isArray(saved)?saved[0]:rec);
+    clearForm('a'); setSyncDot('online');
+    showToast('✅ Aftersales report saved!');
+    updateDashboard(); renderRecords(); renderCalendar(); switchTab('dashboard');
+  } catch(e){setSyncDot('error');showToast('❌ '+(e.message||'Save failed'));}
+  btn.disabled=false; btn.textContent='Submit aftersales report';
+}
+
+// ══ CLEAR FORMS ══════════════════════════════════════════
+function clearForm(prefix) {
+  if(prefix==='p'){
+    ['p-biomed','p-hospital','p-equip','p-brand','p-sn','p-remarks'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.badge-btn[data-group^="p-"]').forEach(b=>b.classList.remove('active'));
+    removeUpload('p');
+  } else {
+    ['a-biomed','a-hospital','a-equip','a-brand','a-sn','a-issue','a-action'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.badge-btn[data-group^="a-"]').forEach(b=>b.classList.remove('active'));
+    removeUpload('a');
+  }
+}
+
+// ══ EDIT AFTERSALES ══════════════════════════════════════
+function openEdit(id) {
+  const r=records.find(rec=>rec.id==id); if(!r) return;
+  editingId=id; editFile=null;
+  document.getElementById('e-status').value    = r.status||'Resolved';
+  document.getElementById('e-condition').value = r.condition||'Functional';
+  document.getElementById('e-action').value    = r.action||'';
+  document.getElementById('e-remarks').value   = r.remarks||'';
+  removeUpload('e');
+  closeOverlay(null,'detailOverlay');
+  document.getElementById('editOverlay').classList.add('open');
+}
+async function saveEdit() {
+  const btn=document.getElementById('e-save-btn');
+  btn.disabled=true; btn.textContent='Saving…'; setSyncDot('syncing');
+  try {
+    let photo_url=undefined;
+    if(editFile){btn.textContent='Uploading photo…';photo_url=await uploadPhoto(editFile,'edit');}
+    const patch={
+      status:    document.getElementById('e-status').value,
+      condition: document.getElementById('e-condition').value,
+      action:    document.getElementById('e-action').value,
+      remarks:   document.getElementById('e-remarks').value,
+    };
+    if(photo_url) patch.photo_url=photo_url;
+    await sbPatch('/rest/v1/reports?id=eq.'+editingId, patch);
+    const idx=records.findIndex(r=>r.id==editingId);
+    if(idx>=0) records[idx]={...records[idx],...patch,...(photo_url?{photo_url}:{})};
+    closeOverlay(null,'editOverlay');
+    setSyncDot('online');
+    showToast('✅ Report updated!');
+    updateDashboard(); renderRecords(); renderCalendar();
+  } catch(e){setSyncDot('error');showToast('❌ '+(e.message||'Update failed'));}
+  btn.disabled=false; btn.textContent='Save changes';
+}
+
+// ══ DASHBOARD ════════════════════════════════════════════
+function updateDashboard() {
+  const now=new Date();
+  const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const mon=records.filter(r=>r.date&&r.date.startsWith(ym));
+  const pmsCount  = mon.filter(r=>r.type==='PMS'&&r.status==='Done').length;
+  const asCount   = mon.filter(r=>r.type==='Aftersales'&&r.status==='Resolved').length;
+  const pending   = records.filter(r=>['Pending parts','Partial fix','Not done'].includes(r.status)).length;
+  const condemned = records.filter(r=>r.condition==='Condemned').length;
+  document.getElementById('d-pms').textContent  = pmsCount;
+  document.getElementById('d-as').textContent   = asCount;
+  document.getElementById('d-pend').textContent = pending;
+  document.getElementById('d-cond').textContent = condemned;
+  const pct=Math.min(100,Math.round(pmsCount/TARGET*100));
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-fill').style.background=pct>=80?'var(--green)':pct>=50?'var(--blue)':'var(--amber)';
+  document.getElementById('prog-label').textContent=pmsCount+' done';
+  document.getElementById('prog-note').textContent=pct>=100?'🎉 Target reached!':pct+'% — '+(TARGET-pmsCount)+' remaining';
+
+  // Team breakdown
+  const bmap={};
+  mon.forEach(r=>{
+    if(!r.biomed) return;
+    if(!bmap[r.biomed]) bmap[r.biomed]={pms:0,as:0};
+    if(r.type==='PMS') bmap[r.biomed].pms++; else bmap[r.biomed].as++;
+  });
+  const cols=['var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--red)'];
+  const bgs =['var(--blue-l)','var(--teal-l)','var(--purple-l)','var(--amber-l)','var(--red-l)'];
+  const entries=Object.entries(bmap);
+  document.getElementById('biomed-list').innerHTML=!entries.length
+    ?'<div class="empty"><div class="ei">📋</div><p>No reports this month yet.</p></div>'
+    :entries.map(([name,d],i)=>{
+        const p=Math.min(100,Math.round(d.pms/20*100));
+        const ini=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+        return `<div class="biomed-row">
+          <div class="avatar" style="background:${bgs[i%5]};color:${cols[i%5]}">${ini}</div>
+          <div class="bm-info">
+            <div class="bm-name">${name}</div>
+            <div class="bm-counts">${d.pms} PMS · ${d.as} aftersales</div>
+            <div class="bm-prog"><div class="bm-prog-fill" style="width:${p}%;background:${cols[i%5]}"></div></div>
+          </div>
+          <div class="status-pill ${p>=80?'sp-g':p>=50?'sp-b':'sp-a'}" style="font-size:10px">${p>=80?'On track':p>=50?'Active':'Low'}</div>
+        </div>`;
+      }).join('');
+
+  // Recent
+  const recent=records.slice(0,5);
+  document.getElementById('recent-list').innerHTML=!recent.length
+    ?'<div class="empty"><div class="ei">🔍</div><p>No reports yet.</p></div>'
+    :recent.map(r=>recHTML(r)).join('');
+}
+
+// ══ CALENDAR ═════════════════════════════════════════════
+function renderCalendar() {
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calTitle').textContent=months[calMonth]+' '+calYear;
+  const grid=document.getElementById('calGrid');
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html=days.map(d=>`<div class="cal-day-name">${d}</div>`).join('');
+  const first=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const daysInPrev=new Date(calYear,calMonth,0).getDate();
+  const today=new Date();
+  // Build date→types map
+  const dateMap={};
+  records.forEach(r=>{
+    if(!r.date) return;
+    const d=r.date.substring(0,7);
+    const ym=calYear+'-'+String(calMonth+1).padStart(2,'0');
+    if(d!==ym) return;
+    const day=parseInt(r.date.substring(8,10));
+    if(!dateMap[day]) dateMap[day]=new Set();
+    dateMap[day].add(r.type);
+  });
+  for(let i=0;i<first;i++) html+=`<div class="cal-day other-month" style="color:var(--text3);font-size:11px">${daysInPrev-first+i+1}</div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
+    const types=dateMap[d]||new Set();
+    let cls='cal-day';
+    if(isToday) cls+=' today';
+    if(types.has('PMS')&&types.has('Aftersales')) cls+=' has-both';
+    else if(types.has('PMS')) cls+=' has-pms';
+    else if(types.has('Aftersales')) cls+=' has-as';
+    html+=`<div class="${cls}" onclick="calDayClick(${d})">${d}</div>`;
+  }
+  const remaining=(7-((first+daysInMonth)%7))%7;
+  for(let i=1;i<=remaining;i++) html+=`<div class="cal-day other-month" style="color:var(--text3);font-size:11px">${i}</div>`;
+  grid.innerHTML=html;
+}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function calDayClick(day){
+  const ym=calYear+'-'+String(calMonth+1).padStart(2,'0');
+  const dateStr=ym+'-'+String(day).padStart(2,'0');
+  const dayRecs=records.filter(r=>r.date===dateStr);
+  if(!dayRecs.length){showToast('No reports on '+dateStr);return;}
+  document.getElementById('detail-title').textContent='Reports on '+dateStr+' ('+dayRecs.length+')';
+  document.getElementById('detail-body').innerHTML=dayRecs.map(r=>recHTML(r)).join('');
+  document.getElementById('detail-actions').innerHTML='';
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+// ══ RECORDS ══════════════════════════════════════════════
+function filterRec(f,el){
+  recordFilter=f;
+  document.querySelectorAll('#screen-records .badge-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active'); renderRecords();
+}
+function renderRecords(){
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  let filtered=records.filter(r=>[r.biomed,r.equipment,r.brand,r.sn,r.hospital,r.issue||''].join(' ').toLowerCase().includes(q));
+  if(recordFilter==='PMS')         filtered=filtered.filter(r=>r.type==='PMS');
+  else if(recordFilter==='Aftersales') filtered=filtered.filter(r=>r.type==='Aftersales');
+  else if(recordFilter==='Condemned')  filtered=filtered.filter(r=>r.condition==='Condemned');
+  else if(recordFilter==='Pending')    filtered=filtered.filter(r=>['Pending parts','Partial fix','Not done'].includes(r.status));
+  const el=document.getElementById('records-list');
+  el.innerHTML=!filtered.length
+    ?'<div class="empty"><div class="ei">📂</div><p>No records found.</p></div>'
+    :filtered.map(r=>recHTML(r)).join('');
+}
+
+function recHTML(r){
+  const sc={Done:'sp-g',Resolved:'sp-g','Partial fix':'sp-a','Pending parts':'sp-a','Not done':'sp-r','For pull-out':'sp-r','N/A':'sp-gr'}[r.status]||'sp-gr';
+  const tc=r.type==='PMS'?'sp-b':'sp-t';
+  const rid=r.id||r.created_at;
+  return `<div class="rec-item" onclick="showDetail('${rid}')">
+    <div class="rec-top">
+      <div>
+        <div class="rec-name">${r.equipment||'—'}</div>
+        <div class="rec-meta">${r.brand||''} · SN: ${r.sn||''}</div>
+        <div class="rec-meta">${r.hospital||''} · ${r.biomed||''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <div class="status-pill ${tc}">${r.type}</div>
+        <div class="status-pill ${sc}">${r.status}</div>
+      </div>
+    </div>
+    <div class="rec-footer">
+      <div class="rec-chip">${r.date||''}</div>
+      ${r.condition?`<div class="rec-chip">${r.condition}</div>`:''}
+      ${r.photo_url?'<div class="rec-chip">📷 Photo</div>':''}
+    </div>
+  </div>`;
+}
+
+function showDetail(rid){
+  const r=records.find(rec=>rec.id==rid||rec.created_at==rid); if(!r) return;
+  document.getElementById('detail-title').textContent=r.equipment+' — '+r.type+' Report';
+  const rows=[
+    ['Biomed',r.biomed],['Date',r.date],['Hospital/Client',r.hospital],
+    ['Brand',r.brand],['Serial No.',r.sn],['Condition',r.condition||'—'],['Status',r.status],
+    r.service_type?['Service type',r.service_type]:null,
+    r.issue?['Issue reported',r.issue]:null,
+    r.action?['Action taken',r.action]:null,
+    r.remarks?['Remarks',r.remarks]:null,
+    r.created_by?['Submitted by',r.created_by]:null,
+  ].filter(Boolean);
+  document.getElementById('detail-body').innerHTML=
+    rows.map(([k,v])=>`<div class="modal-row"><span class="modal-key">${k}</span><span class="modal-val">${v}</span></div>`).join('')+
+    (r.photo_url?`<img class="modal-img" src="${r.photo_url}" alt="Report photo">` :'');
+  const actions=document.getElementById('detail-actions');
+  actions.innerHTML='';
+  // Edit button for Aftersales
+  if(r.type==='Aftersales'){
+    const editBtn=document.createElement('button');
+    editBtn.className='btn btn-teal';
+    editBtn.textContent='✏️ Edit';
+    editBtn.onclick=()=>openEdit(r.id||rid);
+    actions.appendChild(editBtn);
+  }
+  // Delete button for all records
+  const delBtn=document.createElement('button');
+  delBtn.className='btn btn-red';
+  delBtn.textContent='🗑 Delete';
+  delBtn.onclick=()=>confirmDelete(r.id||rid, r.equipment);
+  actions.appendChild(delBtn);
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeOverlay(e,id){
+  if(!e||e.target===document.getElementById(id)) document.getElementById(id).classList.remove('open');
+}
+
+// ══ EXPORT EXCEL ═════════════════════════════════════════
+function populateExportMonths(){
+  const sel=document.getElementById('export-month');
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now=new Date();
+  sel.innerHTML='';
+  for(let i=0;i<12;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const opt=document.createElement('option');
+    opt.value=val; opt.textContent=months[d.getMonth()]+' '+d.getFullYear();
+    sel.appendChild(opt);
+  }
+}
+function exportExcel(){
+  const month=document.getElementById('export-month').value;
+  const type=document.getElementById('export-type').value;
+  let data=records.filter(r=>r.date&&r.date.startsWith(month));
+  if(type!=='all') data=data.filter(r=>r.type===type);
+  if(!data.length){showToast('No records for this selection');return;}
+  const rows=data.map(r=>({
+    'Date':r.date||'','Type':r.type||'','Biomed':r.biomed||'',
+    'Hospital/Client':r.hospital||'','Equipment':r.equipment||'',
+    'Brand':r.brand||'','Serial No.':r.sn||'',
+    'Condition':r.condition||'','Status':r.status||'',
+    'Service Type':r.service_type||'','Issue':r.issue||'',
+    'Action Taken':r.action||'','Remarks':r.remarks||'',
+    'Photo':r.photo_url||'','Submitted By':r.created_by||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Reports');
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [yr,mo]=month.split('-');
+  XLSX.writeFile(wb,'BiomedReport_'+months[parseInt(mo)-1]+yr+(type!=='all'?'_'+type:'')+'.xlsx');
+  showToast('✅ Excel downloaded!');
+}
+
+// ══ DELETE ═══════════════════════════════════════════════
+function confirmDelete(rid, name){
+  // Simple confirm dialog
+  const confirmed = window.confirm('Delete report for "' + (name||'this record') + '"?\nThis cannot be undone.');
+  if(!confirmed) return;
+  doDelete(rid);
+}
+async function doDelete(rid){
+  setSyncDot('syncing');
+  try {
+    const r = await fetch(SUPA_URL+'/rest/v1/reports?id=eq.'+rid, {
+      method:'DELETE',
+      headers:{...H,'Prefer':'return=representation'}
+    });
+    if(!r.ok) throw new Error(await r.text());
+    records = records.filter(rec => rec.id != rid);
+    try{localStorage.setItem('bm_cache',JSON.stringify(records.slice(0,100)));}catch(e){}
+    closeOverlay(null,'detailOverlay');
+    setSyncDot('online');
+    showToast('🗑 Record deleted');
+    updateDashboard(); renderRecords(); renderCalendar();
+  } catch(e){
+    setSyncDot('error');
+    showToast('❌ Delete failed: '+(e.message||'Try again'));
+  }
+}
+
+// ══ TOAST ════════════════════════════════════════════════
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
