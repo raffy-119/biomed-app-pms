@@ -353,7 +353,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
         </div>
         <div class="sec-div"><span>Handwritten report photo</span></div>
         <div class="upload-zone">
-          <input type="file" accept="image/*" capture="environment" id="p-file" onchange="handleUpload('p')">
+          <input type="file" accept="image/*" id="p-file" onchange="handleUpload('p')">
           <div style="font-size:22px;margin-bottom:5px">📷</div>
           <div style="font-size:12px;color:var(--text2)">Tap to take photo or upload<br><span style="font-size:10px;color:var(--text3)">Your handwritten report</span></div>
         </div>
@@ -407,7 +407,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
         </div>
         <div class="sec-div"><span>Service report photo</span></div>
         <div class="upload-zone">
-          <input type="file" accept="image/*" capture="environment" id="a-file" onchange="handleUpload('a')">
+          <input type="file" accept="image/*" id="a-file" onchange="handleUpload('a')">
           <div style="font-size:22px;margin-bottom:5px">📷</div>
           <div style="font-size:12px;color:var(--text2)">Tap to take photo or upload<br><span style="font-size:10px;color:var(--text3)">Your handwritten report</span></div>
         </div>
@@ -484,7 +484,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
       <div class="form-col"><label>Remarks</label><textarea id="e-remarks" placeholder="Additional notes..."></textarea></div>
       <div class="form-col"><label>Update photo (optional)</label>
         <div class="upload-zone">
-          <input type="file" accept="image/*" capture="environment" id="e-file" onchange="handleUpload('e')">
+          <input type="file" accept="image/*" id="e-file" onchange="handleUpload('e')">
           <div style="font-size:20px;margin-bottom:4px">📷</div>
           <div style="font-size:12px;color:var(--text2)">Replace photo (optional)</div>
         </div>
@@ -726,8 +726,7 @@ async function submitPMS() {
     let photo_url=null;
     if(pmsFile){btn.textContent='Uploading photo…';photo_url=await uploadPhoto(pmsFile,'pms');}
     btn.textContent='Saving to database…';
-    const rec={type:'PMS',biomed:gv('p-biomed'),date:gv('p-date'),hospital:gv('p-hospital'),equipment:gv('p-equip'),brand:gv('p-brand'),sn:gv('p-sn'),condition:cond,status,remarks:gv('p-remarks'),photo_url,
-      created_by: currentUser?.email||''};
+    const rec={type:'PMS',biomed:gv('p-biomed'),date:gv('p-date'),hospital:gv('p-hospital'),equipment:gv('p-equip'),brand:gv('p-brand'),sn:gv('p-sn'),condition:cond,status,remarks:gv('p-remarks'),photo_url,created_by:(currentUser?.email||currentUser?.user_metadata?.full_name||'')};
     const saved=await sbPost('/rest/v1/reports',rec);
     records.unshift(Array.isArray(saved)?saved[0]:rec);
     clearForm('p'); setSyncDot('online');
@@ -748,8 +747,7 @@ async function submitAftersales() {
     let photo_url=null;
     if(asFile){btn.textContent='Uploading photo…';photo_url=await uploadPhoto(asFile,'as');}
     btn.textContent='Saving to database…';
-    const rec={type:'Aftersales',biomed:gv('a-biomed'),date:gv('a-date'),hospital:gv('a-hospital'),equipment:gv('a-equip'),brand:gv('a-brand'),sn:gv('a-sn'),issue:gv('a-issue'),service_type:stype,status,action:gv('a-action'),photo_url,
-      created_by: currentUser?.email||''};
+    const rec={type:'Aftersales',biomed:gv('a-biomed'),date:gv('a-date'),hospital:gv('a-hospital'),equipment:gv('a-equip'),brand:gv('a-brand'),sn:gv('a-sn'),issue:gv('a-issue'),service_type:stype,status,action:gv('a-action'),photo_url,created_by:(currentUser?.email||currentUser?.user_metadata?.full_name||'')};
     const saved=await sbPost('/rest/v1/reports',rec);
     records.unshift(Array.isArray(saved)?saved[0]:rec);
     clearForm('a'); setSyncDot('online');
@@ -964,6 +962,7 @@ function showDetail(rid){
     r.action?['Action taken',r.action]:null,
     r.remarks?['Remarks',r.remarks]:null,
     r.created_by?['Submitted by',r.created_by]:null,
+
   ].filter(Boolean);
   document.getElementById('detail-body').innerHTML=
     rows.map(([k,v])=>`<div class="modal-row"><span class="modal-key">${k}</span><span class="modal-val">${v}</span></div>`).join('')+
