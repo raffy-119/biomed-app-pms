@@ -437,14 +437,36 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
     <!-- ── RECORDS ─────────────────────────────────────── -->
     <div class="screen" id="screen-records">
       <!-- Export bar -->
-      <div class="export-bar">
-        <select id="export-month"></select>
-        <select id="export-type">
-          <option value="all">All types</option>
-          <option value="PMS">PMS only</option>
-          <option value="Aftersales">Aftersales only</option>
-        </select>
-        <button class="btn btn-green btn-sm" onclick="exportExcel()" style="white-space:nowrap">⬇ Excel</button>
+      <div style="background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:13px;margin-bottom:11px">
+        <div style="font-size:12px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">⬇ Download Excel</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label style="font-size:11px;margin-bottom:4px;display:block">Period</label>
+            <select id="export-period">
+              <option value="this-week">This week</option>
+              <option value="last-week">Last week</option>
+              <option value="this-month" selected>This month</option>
+              <option value="last-month">Last month</option>
+              <option value="custom">Custom month</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;margin-bottom:4px;display:block">Type</label>
+            <select id="export-type">
+              <option value="all">All types</option>
+              <option value="PMS">PMS only</option>
+              <option value="Aftersales">Aftersales only</option>
+            </select>
+          </div>
+        </div>
+        <div id="custom-month-wrap" style="margin-bottom:8px;display:none">
+          <label style="font-size:11px;margin-bottom:4px;display:block">Select month</label>
+          <select id="export-month"></select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-green btn-sm" onclick="exportExcel('all')" style="white-space:nowrap;width:100%">⬇ All records</button>
+          <button class="btn btn-blue btn-sm" onclick="exportExcel('mine')" style="white-space:nowrap;width:100%">⬇ My records</button>
+        </div>
       </div>
       <div class="search-bar">
         <span class="s-icon">🔍</span>
@@ -613,12 +635,17 @@ async function sbPost(path, body) {
 }
 async function sbGet(path) {
   try {
-    const r = await fetch(SUPA_URL+path, {headers:getHeaders(), mode:'cors'});
+    const r = await fetch(SUPA_URL+path, {headers:getHeaders()});
     if (!r.ok) { const t=await r.text(); throw new Error(t); }
     return r.json();
   } catch(e) {
     if(e.message && e.message !== 'Failed to fetch') throw e;
-    throw new Error('Cannot reach Supabase. Check your internet or Supabase project status.');
+    // Retry without explicit CORS mode
+    try {
+      const r2 = await fetch(SUPA_URL+path, {headers:getHeaders()});
+      if (!r2.ok) { const t=await r2.text(); throw new Error(t); }
+      return r2.json();
+    } catch(e2) { throw new Error('Database unreachable. Check your connection.'); }
   }
 }
 async function sbPatch(path, body) {
@@ -706,20 +733,43 @@ async function doLogin() {
   const btn = document.getElementById('loginBtn');
   btn.disabled=true; btn.textContent='Logging in…';
   try {
-    const r = await fetch(SUPA_URL+'/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({email, password:pass})
-    });
-    const data = await r.json();
+    let r, data;
+    // Try primary auth endpoint
+    try {
+      r = await fetch(SUPA_URL+'/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({email, password:pass})
+      });
+      data = await r.json();
+    } catch(fetchErr) {
+      // Network completely blocked - try without mode:cors
+      r = await fetch(SUPA_URL+'/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({email, password:pass})
+      });
+      data = await r.json();
+    }
     if (!r.ok || !data.access_token) {
-      throw new Error(data.error_description || data.msg || data.error || 'Login failed. Check your email and password.');
+      const errMsg = data.error_description || data.msg || data.error || '';
+      if(errMsg.toLowerCase().includes('rate') || errMsg.toLowerCase().includes('limit')) {
+        throw new Error('Too many login attempts. Please wait a few minutes and try again.');
+      }
+      if(errMsg.toLowerCase().includes('invalid') || errMsg.toLowerCase().includes('credentials')) {
+        throw new Error('Wrong email or password. Please try again.');
+      }
+      throw new Error(errMsg || 'Login failed. Check your email and password.');
     }
     currentUser = data.user || {email};
     window._sbToken = data.access_token;
@@ -739,19 +789,39 @@ async function doSignup() {
   const btn = document.getElementById('signupBtn');
   btn.disabled=true; btn.textContent='Creating account…';
   try {
-    const r = await fetch(SUPA_URL+'/auth/v1/signup', {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({email, password:pass, data:{full_name:name}})
-    });
-    const data = await r.json();
-    if (!r.ok || data.error) throw new Error(data.error_description || data.msg || data.error || 'Signup failed.');
+    let r, data;
+    try {
+      r = await fetch(SUPA_URL+'/auth/v1/signup', {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({email, password:pass, data:{full_name:name}})
+      });
+      data = await r.json();
+    } catch(fetchErr) {
+      r = await fetch(SUPA_URL+'/auth/v1/signup', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({email, password:pass, data:{full_name:name}})
+      });
+      data = await r.json();
+    }
+    if (!r.ok || data.error) {
+      const errMsg = data.error_description || data.msg || data.error || '';
+      if(errMsg.toLowerCase().includes('rate') || errMsg.toLowerCase().includes('limit')) {
+        throw new Error('Signup limit reached. Please ask your admin to create your account directly in Supabase.');
+      }
+      throw new Error(errMsg || 'Signup failed. Try again.');
+    }
     authErr(''); 
     document.getElementById('authErr').style.background='var(--green-l)';
     document.getElementById('authErr').style.color='var(--green)';
@@ -762,12 +832,41 @@ async function doSignup() {
   btn.disabled=false; btn.textContent='Create Account';
 }
 function doLogout() {
-  currentUser=null; records=[];
-  H['Authorization']='Bearer '+SUPA_KEY;
+  // Sign out from Supabase
+  fetch(SUPA_URL+'/auth/v1/logout', {
+    method:'POST', mode:'cors',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+(window._sbToken||SUPA_KEY),'Content-Type':'application/json'}
+  }).catch(()=>{});
+  // Clear local state
+  currentUser = null;
+  records = [];
+  window._sbToken = null;
+  // Destroy charts
+  if(window.myPerfChartInst){myPerfChartInst.destroy();myPerfChartInst=null;}
+  if(window.teamChartInst){teamChartInst.destroy();teamChartInst=null;}
+  if(window.weekChartInst){weekChartInst.destroy();weekChartInst=null;}
+  // Reset UI
   document.getElementById('mainApp').classList.remove('visible');
   document.getElementById('authWrap').style.display='';
+  document.getElementById('authWrap').style.removeProperty('display');
   document.getElementById('li-email').value='';
   document.getElementById('li-pass').value='';
+  document.getElementById('authErr').classList.remove('show');
+  // Reset to login tab
+  showAuthTab('login');
+  // Reset dashboard
+  document.getElementById('d-pms').textContent='—';
+  document.getElementById('d-as').textContent='—';
+  document.getElementById('d-pend').textContent='—';
+  document.getElementById('d-cond').textContent='—';
+  document.getElementById('biomed-list').innerHTML='<div class="skel"></div><div class="skel" style="width:70%"></div>';
+  document.getElementById('recent-list').innerHTML='<div class="skel"></div><div class="skel" style="width:60%"></div>';
+  // Switch back to dashboard tab
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelector('.nav-tab[data-screen="dashboard"]').classList.add('active');
+  document.getElementById('screen-dashboard').classList.add('active');
+  showToast('Logged out successfully');
 }
 
 // ══ INIT ═════════════════════════════════════════════════
@@ -1143,6 +1242,7 @@ function closeOverlay(e,id){
 // ══ EXPORT EXCEL ═════════════════════════════════════════
 function populateExportMonths(){
   const sel=document.getElementById('export-month');
+  if(!sel) return;
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const now=new Date();
   sel.innerHTML='';
@@ -1153,29 +1253,99 @@ function populateExportMonths(){
     opt.value=val; opt.textContent=months[d.getMonth()]+' '+d.getFullYear();
     sel.appendChild(opt);
   }
+  // Show/hide custom month picker
+  const periodSel=document.getElementById('export-period');
+  if(periodSel){
+    periodSel.addEventListener('change',()=>{
+      document.getElementById('custom-month-wrap').style.display=
+        periodSel.value==='custom'?'block':'none';
+    });
+  }
 }
-function exportExcel(){
-  const month=document.getElementById('export-month').value;
+
+function getExportDateRange(){
+  const period=document.getElementById('export-period').value;
+  const now=new Date();
+  let start, end, label;
+  if(period==='this-week'){
+    start=new Date(now); start.setDate(now.getDate()-now.getDay()); start.setHours(0,0,0,0);
+    end=new Date(now); end.setHours(23,59,59,999);
+    label='Week_'+start.toISOString().slice(0,10)+'_to_'+end.toISOString().slice(0,10);
+  } else if(period==='last-week'){
+    start=new Date(now); start.setDate(now.getDate()-now.getDay()-7); start.setHours(0,0,0,0);
+    end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+    label='Week_'+start.toISOString().slice(0,10)+'_to_'+end.toISOString().slice(0,10);
+  } else if(period==='this-month'){
+    start=new Date(now.getFullYear(),now.getMonth(),1);
+    end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    label=months[now.getMonth()]+now.getFullYear();
+  } else if(period==='last-month'){
+    start=new Date(now.getFullYear(),now.getMonth()-1,1);
+    end=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    label=months[start.getMonth()]+start.getFullYear();
+  } else {
+    const ym=document.getElementById('export-month').value;
+    const [yr,mo]=ym.split('-');
+    start=new Date(parseInt(yr),parseInt(mo)-1,1);
+    end=new Date(parseInt(yr),parseInt(mo),0,23,59,59);
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    label=months[parseInt(mo)-1]+yr;
+  }
+  return {start,end,label};
+}
+function exportExcel(scope){
   const type=document.getElementById('export-type').value;
-  let data=records.filter(r=>r.date&&r.date.startsWith(month));
+  const {start,end,label}=getExportDateRange();
+  const userEmail = currentUser?.email||'';
+  const userName  = currentUser?.user_metadata?.full_name||'';
+
+  let data=records.filter(r=>{
+    if(!r.date) return false;
+    const d=new Date(r.date);
+    return d>=start && d<=end;
+  });
   if(type!=='all') data=data.filter(r=>r.type===type);
-  if(!data.length){showToast('No records for this selection');return;}
+  // If 'mine' filter - only current user's records
+  if(scope==='mine'){
+    data=data.filter(r=>r.created_by===userEmail||r.biomed===userName);
+  }
+  if(!data.length){showToast('No records found for this selection');return;}
+
   const rows=data.map(r=>({
-    'Date':r.date||'','Type':r.type||'','Biomed':r.biomed||'',
-    'Hospital/Client':r.hospital||'','Equipment':r.equipment||'',
-    'Brand':r.brand||'','Serial No.':r.sn||'',
-    'Condition':r.condition||'','Status':r.status||'',
-    'Service Type':r.service_type||'','Issue':r.issue||'',
-    'Action Taken':r.action||'','Remarks':r.remarks||'',
-    'Photo':r.photo_url||'','Submitted By':r.created_by||''
+    'Date':r.date||'',
+    'Type':r.type||'',
+    'Biomed':r.biomed||'',
+    'Hospital / Client':r.hospital||'',
+    'Equipment':r.equipment||'',
+    'Brand':r.brand||'',
+    'Serial No.':r.sn||'',
+    'Condition':r.condition||'',
+    'Status':r.status||'',
+    'Service Type':r.service_type||'',
+    'Issue / Complaint':r.issue||'',
+    'Action Taken':r.action||'',
+    'Remarks':r.remarks||'',
+    'Photo URL':r.photo_url?'Yes':'No',
+    'Submitted By':r.created_by||''
   }));
+
+  // Create workbook with styled header
   const ws=XLSX.utils.json_to_sheet(rows);
+  // Set column widths
+  ws['!cols']=[
+    {wch:12},{wch:12},{wch:18},{wch:20},{wch:20},
+    {wch:14},{wch:14},{wch:16},{wch:16},{wch:14},
+    {wch:24},{wch:28},{wch:24},{wch:8},{wch:24}
+  ];
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Reports');
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const [yr,mo]=month.split('-');
-  XLSX.writeFile(wb,'BiomedReport_'+months[parseInt(mo)-1]+yr+(type!=='all'?'_'+type:'')+'.xlsx');
-  showToast('✅ Excel downloaded!');
+  const sheetName=(type==='all'?'All':type)+' Reports';
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  const scopeLabel=scope==='mine'?'_MyRecords':'_AllRecords';
+  const typeLabel=type!=='all'?'_'+type:'';
+  XLSX.writeFile(wb,'ProLife_BioMed_'+label+typeLabel+scopeLabel+'.xlsx');
+  showToast('✅ Excel downloaded! ('+data.length+' records)');
 }
 
 // ══ DELETE ═══════════════════════════════════════════════
